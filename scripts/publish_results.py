@@ -5,6 +5,38 @@ def parse_report(filepath):
     try:
         wb = openpyxl.load_workbook(filepath, data_only=True)
         
+        if 'Executive Summary' in wb.sheetnames:
+            ws_summary = wb['Executive Summary']
+            summary_dict = {}
+            for row in list(ws_summary.values)[1:]:
+                if row and len(row) >= 2 and row[0]:
+                    summary_dict[str(row[0])] = row[1]
+            
+            mapped_summary = {
+                'Test Suite': 'Backend Security Verification',
+                'Total Tests': summary_dict.get('Total verification checks run', 'N/A'),
+                'Passed': summary_dict.get('✅ PASSED (fix confirmed in code)', 'N/A'),
+                'Failed': summary_dict.get('❌ FAILED (fix missing/incorrect)', 'N/A'),
+                'Pass Rate %': str(summary_dict.get('Pass Rate', 'N/A')).replace('%', ''),
+                'Duration (sec)': 'N/A',
+                'End Time': 'N/A'
+            }
+            
+            ws_details = wb['Finding Results'] if 'Finding Results' in wb.sheetnames else wb['Detailed Check Results']
+            detail_rows = list(ws_details.values)
+            detail_headers = [str(h) for h in detail_rows[0]]
+            details = []
+            for r in detail_rows[1:]:
+                if r and r[0] is not None:
+                    d = dict(zip(detail_headers, r))
+                    details.append({
+                        'No.': d.get('Finding ID', '-'),
+                        'Category': d.get('Category', '-'),
+                        'Test Name': f"Severity: {d.get('Severity', '-')}",
+                        'Status': 'PASSED' if 'PASS' in str(d.get('Overall Result', '')).upper() else 'FAILED'
+                    })
+            return mapped_summary, details
+
         # Parse Summary
         ws_summary = wb['Summary']
         rows = list(ws_summary.values)
